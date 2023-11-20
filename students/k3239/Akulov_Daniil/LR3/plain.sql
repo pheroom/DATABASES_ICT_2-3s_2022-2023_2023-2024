@@ -5,7 +5,7 @@
 -- Dumped from database version 16.0
 -- Dumped by pg_dump version 16.0
 
--- Started on 2023-10-24 15:38:47
+-- Started on 2023-11-20 23:07:46
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -27,7 +27,7 @@ CREATE EXTENSION IF NOT EXISTS adminpack WITH SCHEMA pg_catalog;
 
 
 --
--- TOC entry 4951 (class 0 OID 0)
+-- TOC entry 4967 (class 0 OID 0)
 -- Dependencies: 2
 -- Name: EXTENSION adminpack; Type: COMMENT; Schema: -; Owner: 
 --
@@ -46,11 +46,11 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.client (
     id integer NOT NULL,
-    name character varying(50),
-    passportid character varying(10),
-    phonenumber character varying(11),
-    email character varying(100),
-    address character varying(100),
+    name character varying(50) NOT NULL,
+    passportid character varying(10) NOT NULL,
+    phonenumber character varying(11) NOT NULL,
+    email character varying(100) NOT NULL,
+    address character varying(100) NOT NULL,
     CONSTRAINT client_email_check CHECK (((email)::text ~ '^[a-zA-Z0-9.!#$%&''*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'::text)),
     CONSTRAINT client_passportid_check CHECK (((passportid)::text ~ '^[0-9]{10}$'::text)),
     CONSTRAINT client_phonenumber_check CHECK (((phonenumber)::text ~ '^[0-9]{11}$'::text))
@@ -76,7 +76,7 @@ CREATE SEQUENCE public.client_id_seq
 ALTER SEQUENCE public.client_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4952 (class 0 OID 0)
+-- TOC entry 4968 (class 0 OID 0)
 -- Dependencies: 216
 -- Name: client_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
@@ -85,7 +85,7 @@ ALTER SEQUENCE public.client_id_seq OWNED BY public.client.id;
 
 
 --
--- TOC entry 230 (class 1259 OID 16592)
+-- TOC entry 225 (class 1259 OID 24652)
 -- Name: credit; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -93,16 +93,17 @@ CREATE TABLE public.credit (
     id integer NOT NULL,
     description character varying(200) NOT NULL,
     name character varying(30) NOT NULL,
-    minimumamount integer NOT NULL,
+    maximumamount numeric NOT NULL,
     interestrate real NOT NULL,
-    CONSTRAINT credit_minimumamount_check CHECK ((minimumamount > 0))
+    CONSTRAINT credit_interestrate_check CHECK ((interestrate < (40)::double precision)),
+    CONSTRAINT credit_maximumamount_check CHECK ((maximumamount > (0)::numeric))
 );
 
 
 ALTER TABLE public.credit OWNER TO postgres;
 
 --
--- TOC entry 232 (class 1259 OID 16600)
+-- TOC entry 229 (class 1259 OID 24675)
 -- Name: credit_agreement; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -114,19 +115,23 @@ CREATE TABLE public.credit_agreement (
     clientid integer NOT NULL,
     dayofaccrual integer NOT NULL,
     plannedclosingdate date NOT NULL,
-    interestamount integer DEFAULT 0,
-    currentdebt integer NOT NULL,
-    initialamount integer NOT NULL,
+    interestamount numeric DEFAULT 0,
+    interestrate real NOT NULL,
+    currentdebt numeric DEFAULT 0,
+    initialamount numeric NOT NULL,
     dateofopening date NOT NULL,
     dateofclosing date,
-    CONSTRAINT credit_agreement_dayofaccrual_check CHECK (((dayofaccrual > 0) AND (dayofaccrual < 29)))
+    CONSTRAINT credit_agreement_check CHECK ((plannedclosingdate > dateofopening)),
+    CONSTRAINT credit_agreement_dayofaccrual_check CHECK (((dayofaccrual > 0) AND (dayofaccrual < 29))),
+    CONSTRAINT credit_agreement_initialamount_check CHECK ((initialamount > (0)::numeric)),
+    CONSTRAINT credit_agreement_interestrate_check CHECK ((interestrate < (40)::double precision))
 );
 
 
 ALTER TABLE public.credit_agreement OWNER TO postgres;
 
 --
--- TOC entry 231 (class 1259 OID 16599)
+-- TOC entry 228 (class 1259 OID 24674)
 -- Name: credit_agreement_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -142,8 +147,8 @@ CREATE SEQUENCE public.credit_agreement_id_seq
 ALTER SEQUENCE public.credit_agreement_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4953 (class 0 OID 0)
--- Dependencies: 231
+-- TOC entry 4969 (class 0 OID 0)
+-- Dependencies: 228
 -- Name: credit_agreement_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -151,7 +156,7 @@ ALTER SEQUENCE public.credit_agreement_id_seq OWNED BY public.credit_agreement.i
 
 
 --
--- TOC entry 229 (class 1259 OID 16591)
+-- TOC entry 224 (class 1259 OID 24651)
 -- Name: credit_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -167,8 +172,8 @@ CREATE SEQUENCE public.credit_id_seq
 ALTER SEQUENCE public.credit_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4954 (class 0 OID 0)
--- Dependencies: 229
+-- TOC entry 4970 (class 0 OID 0)
+-- Dependencies: 224
 -- Name: credit_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -176,20 +181,46 @@ ALTER SEQUENCE public.credit_id_seq OWNED BY public.credit.id;
 
 
 --
--- TOC entry 233 (class 1259 OID 16628)
+-- TOC entry 235 (class 1259 OID 24760)
 -- Name: credit_payment_schedule; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.credit_payment_schedule (
+    id integer NOT NULL,
     creditagreementid integer NOT NULL,
     plannedpaymentdate date NOT NULL,
     actualpaymentdate date,
-    interestpayment integer,
-    creditpayment integer
+    interestpayment numeric NOT NULL,
+    creditpayment numeric NOT NULL
 );
 
 
 ALTER TABLE public.credit_payment_schedule OWNER TO postgres;
+
+--
+-- TOC entry 234 (class 1259 OID 24759)
+-- Name: credit_payment_schedule_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.credit_payment_schedule_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.credit_payment_schedule_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 4971 (class 0 OID 0)
+-- Dependencies: 234
+-- Name: credit_payment_schedule_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.credit_payment_schedule_id_seq OWNED BY public.credit_payment_schedule.id;
+
 
 --
 -- TOC entry 223 (class 1259 OID 16527)
@@ -198,7 +229,8 @@ ALTER TABLE public.credit_payment_schedule OWNER TO postgres;
 
 CREATE TABLE public.currency (
     id integer NOT NULL,
-    name character varying(30)
+    name character varying(30) NOT NULL,
+    country character varying(20) NOT NULL
 );
 
 
@@ -221,7 +253,7 @@ CREATE SEQUENCE public.currency_id_seq
 ALTER SEQUENCE public.currency_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4955 (class 0 OID 0)
+-- TOC entry 4972 (class 0 OID 0)
 -- Dependencies: 222
 -- Name: currency_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
@@ -230,7 +262,7 @@ ALTER SEQUENCE public.currency_id_seq OWNED BY public.currency.id;
 
 
 --
--- TOC entry 225 (class 1259 OID 16534)
+-- TOC entry 227 (class 1259 OID 24664)
 -- Name: deposit; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -238,16 +270,17 @@ CREATE TABLE public.deposit (
     id integer NOT NULL,
     description character varying(200) NOT NULL,
     name character varying(30) NOT NULL,
-    minimumamount integer NOT NULL,
+    minimumamount numeric NOT NULL,
     interestrate real NOT NULL,
-    CONSTRAINT deposit_minimumamount_check CHECK ((minimumamount > 0))
+    CONSTRAINT deposit_interestrate_check CHECK ((interestrate < (20)::double precision)),
+    CONSTRAINT deposit_minimumamount_check CHECK ((minimumamount > (0)::numeric))
 );
 
 
 ALTER TABLE public.deposit OWNER TO postgres;
 
 --
--- TOC entry 227 (class 1259 OID 16543)
+-- TOC entry 231 (class 1259 OID 24710)
 -- Name: deposit_agreement; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -259,18 +292,20 @@ CREATE TABLE public.deposit_agreement (
     clientid integer NOT NULL,
     dayofaccrual integer NOT NULL,
     plannedclosingdate date NOT NULL,
-    amountofpayments integer DEFAULT 0,
-    initialamount integer NOT NULL,
+    amountofpayments numeric DEFAULT 0,
+    initialamount numeric NOT NULL,
     dateofopening date NOT NULL,
     dateofclosing date,
-    CONSTRAINT deposit_agreement_dayofaccrual_check CHECK (((dayofaccrual > 0) AND (dayofaccrual < 29)))
+    CONSTRAINT deposit_agreement_check CHECK ((plannedclosingdate > dateofopening)),
+    CONSTRAINT deposit_agreement_dayofaccrual_check CHECK (((dayofaccrual > 0) AND (dayofaccrual < 29))),
+    CONSTRAINT deposit_agreement_initialamount_check CHECK ((initialamount > (0)::numeric))
 );
 
 
 ALTER TABLE public.deposit_agreement OWNER TO postgres;
 
 --
--- TOC entry 226 (class 1259 OID 16542)
+-- TOC entry 230 (class 1259 OID 24709)
 -- Name: deposit_agreement_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -286,8 +321,8 @@ CREATE SEQUENCE public.deposit_agreement_id_seq
 ALTER SEQUENCE public.deposit_agreement_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4956 (class 0 OID 0)
--- Dependencies: 226
+-- TOC entry 4973 (class 0 OID 0)
+-- Dependencies: 230
 -- Name: deposit_agreement_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -295,7 +330,7 @@ ALTER SEQUENCE public.deposit_agreement_id_seq OWNED BY public.deposit_agreement
 
 
 --
--- TOC entry 224 (class 1259 OID 16533)
+-- TOC entry 226 (class 1259 OID 24663)
 -- Name: deposit_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -311,8 +346,8 @@ CREATE SEQUENCE public.deposit_id_seq
 ALTER SEQUENCE public.deposit_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4957 (class 0 OID 0)
--- Dependencies: 224
+-- TOC entry 4974 (class 0 OID 0)
+-- Dependencies: 226
 -- Name: deposit_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -320,19 +355,45 @@ ALTER SEQUENCE public.deposit_id_seq OWNED BY public.deposit.id;
 
 
 --
--- TOC entry 228 (class 1259 OID 16581)
+-- TOC entry 233 (class 1259 OID 24746)
 -- Name: deposit_payment_schedule; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.deposit_payment_schedule (
+    id integer NOT NULL,
     depositagreementid integer NOT NULL,
     plannedpaymentdate date NOT NULL,
     actualpaymentdate date,
-    paymentamount integer
+    paymentamount numeric NOT NULL
 );
 
 
 ALTER TABLE public.deposit_payment_schedule OWNER TO postgres;
+
+--
+-- TOC entry 232 (class 1259 OID 24745)
+-- Name: deposit_payment_schedule_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.deposit_payment_schedule_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.deposit_payment_schedule_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 4975 (class 0 OID 0)
+-- Dependencies: 232
+-- Name: deposit_payment_schedule_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.deposit_payment_schedule_id_seq OWNED BY public.deposit_payment_schedule.id;
+
 
 --
 -- TOC entry 221 (class 1259 OID 16510)
@@ -341,14 +402,14 @@ ALTER TABLE public.deposit_payment_schedule OWNER TO postgres;
 
 CREATE TABLE public.employee (
     id integer NOT NULL,
-    name character varying(50),
-    passportid character varying(10),
-    phonenumber character varying(11),
-    email character varying(100),
-    address character varying(100),
-    dateofbirth character varying(10),
-    salary integer,
-    categoryid integer,
+    name character varying(50) NOT NULL,
+    passportid character varying(10) NOT NULL,
+    phonenumber character varying(11) NOT NULL,
+    email character varying(100) NOT NULL,
+    address character varying(100) NOT NULL,
+    dateofbirth character varying(10) NOT NULL,
+    salary integer NOT NULL,
+    categoryid integer NOT NULL,
     CONSTRAINT employee_email_check CHECK (((email)::text ~ '^[a-zA-Z0-9.!#$%&''*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'::text)),
     CONSTRAINT employee_passportid_check CHECK (((passportid)::text ~ '^[0-9]{10}$'::text)),
     CONSTRAINT employee_phonenumber_check CHECK (((phonenumber)::text ~ '^[0-9]{11}$'::text)),
@@ -365,9 +426,9 @@ ALTER TABLE public.employee OWNER TO postgres;
 
 CREATE TABLE public.employee_category (
     id integer NOT NULL,
-    description character varying(200),
-    salary integer,
-    name character varying(30),
+    description character varying(200) NOT NULL,
+    salary integer NOT NULL,
+    name character varying(30) NOT NULL,
     CONSTRAINT employee_category_salary_check CHECK ((salary > 0))
 );
 
@@ -391,7 +452,7 @@ CREATE SEQUENCE public.employee_category_id_seq
 ALTER SEQUENCE public.employee_category_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4958 (class 0 OID 0)
+-- TOC entry 4976 (class 0 OID 0)
 -- Dependencies: 218
 -- Name: employee_category_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
@@ -416,7 +477,7 @@ CREATE SEQUENCE public.employee_id_seq
 ALTER SEQUENCE public.employee_id_seq OWNER TO postgres;
 
 --
--- TOC entry 4959 (class 0 OID 0)
+-- TOC entry 4977 (class 0 OID 0)
 -- Dependencies: 220
 -- Name: employee_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
@@ -425,7 +486,7 @@ ALTER SEQUENCE public.employee_id_seq OWNED BY public.employee.id;
 
 
 --
--- TOC entry 4732 (class 2604 OID 16495)
+-- TOC entry 4734 (class 2604 OID 16495)
 -- Name: client id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -433,7 +494,7 @@ ALTER TABLE ONLY public.client ALTER COLUMN id SET DEFAULT nextval('public.clien
 
 
 --
--- TOC entry 4739 (class 2604 OID 16595)
+-- TOC entry 4738 (class 2604 OID 24655)
 -- Name: credit id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -441,7 +502,7 @@ ALTER TABLE ONLY public.credit ALTER COLUMN id SET DEFAULT nextval('public.credi
 
 
 --
--- TOC entry 4740 (class 2604 OID 16603)
+-- TOC entry 4740 (class 2604 OID 24678)
 -- Name: credit_agreement id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -449,7 +510,15 @@ ALTER TABLE ONLY public.credit_agreement ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
--- TOC entry 4735 (class 2604 OID 16530)
+-- TOC entry 4746 (class 2604 OID 24763)
+-- Name: credit_payment_schedule id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.credit_payment_schedule ALTER COLUMN id SET DEFAULT nextval('public.credit_payment_schedule_id_seq'::regclass);
+
+
+--
+-- TOC entry 4737 (class 2604 OID 16530)
 -- Name: currency id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -457,7 +526,7 @@ ALTER TABLE ONLY public.currency ALTER COLUMN id SET DEFAULT nextval('public.cur
 
 
 --
--- TOC entry 4736 (class 2604 OID 16537)
+-- TOC entry 4739 (class 2604 OID 24667)
 -- Name: deposit id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -465,7 +534,7 @@ ALTER TABLE ONLY public.deposit ALTER COLUMN id SET DEFAULT nextval('public.depo
 
 
 --
--- TOC entry 4737 (class 2604 OID 16546)
+-- TOC entry 4743 (class 2604 OID 24713)
 -- Name: deposit_agreement id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -473,7 +542,15 @@ ALTER TABLE ONLY public.deposit_agreement ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
--- TOC entry 4734 (class 2604 OID 16513)
+-- TOC entry 4745 (class 2604 OID 24749)
+-- Name: deposit_payment_schedule id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.deposit_payment_schedule ALTER COLUMN id SET DEFAULT nextval('public.deposit_payment_schedule_id_seq'::regclass);
+
+
+--
+-- TOC entry 4736 (class 2604 OID 16513)
 -- Name: employee id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -481,7 +558,7 @@ ALTER TABLE ONLY public.employee ALTER COLUMN id SET DEFAULT nextval('public.emp
 
 
 --
--- TOC entry 4733 (class 2604 OID 16505)
+-- TOC entry 4735 (class 2604 OID 16505)
 -- Name: employee_category id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -489,7 +566,7 @@ ALTER TABLE ONLY public.employee_category ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
--- TOC entry 4929 (class 0 OID 16492)
+-- TOC entry 4943 (class 0 OID 16492)
 -- Dependencies: 217
 -- Data for Name: client; Type: TABLE DATA; Schema: public; Owner: postgres
 --
@@ -501,83 +578,95 @@ COPY public.client (id, name, passportid, phonenumber, email, address) FROM stdi
 
 
 --
--- TOC entry 4942 (class 0 OID 16592)
--- Dependencies: 230
+-- TOC entry 4951 (class 0 OID 24652)
+-- Dependencies: 225
 -- Data for Name: credit; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.credit (id, description, name, minimumamount, interestrate) FROM stdin;
-1	От 21 года на дату получения кредита	Автокредит наличными	10000	4.7
-2	От 21 года на дату получения кредита, общий стаж работы не менее 3 лет	Под залог недвижимости	50000	16
+COPY public.credit (id, description, name, maximumamount, interestrate) FROM stdin;
+2	От 21 года на дату получения кредита Автокредит наличными	Стандартный	5000000	7.7
+1	От 21 года на дату получения кредита, общий стаж работы не менее 3 лет	Под залог\nнедвижимости	5000000	6.8
 \.
 
 
 --
--- TOC entry 4944 (class 0 OID 16600)
--- Dependencies: 232
+-- TOC entry 4955 (class 0 OID 24675)
+-- Dependencies: 229
 -- Data for Name: credit_agreement; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.credit_agreement (id, currencyid, creditid, employeeid, clientid, dayofaccrual, plannedclosingdate, interestamount, currentdebt, initialamount, dateofopening, dateofclosing) FROM stdin;
-1	2	1	7	3	25	2024-10-24	0	56000	60000	2023-10-24	\N
-2	2	2	7	3	12	2023-12-12	5000	20000	55000	2023-03-12	\N
+COPY public.credit_agreement (id, currencyid, creditid, employeeid, clientid, dayofaccrual, plannedclosingdate, interestamount, interestrate, currentdebt, initialamount, dateofopening, dateofclosing) FROM stdin;
+1	2	1	7	3	25	2024-10-24	0	8.7	56000	600000	2023-10-24	\N
+2	2	2	7	3	12	2023-12-12	5000	8.6	20000	550000	2023-03-12	\N
+3	2	2	7	4	13	2024-11-13	0	9.3	0	500000	2023-11-13	\N
 \.
 
 
 --
--- TOC entry 4945 (class 0 OID 16628)
--- Dependencies: 233
+-- TOC entry 4961 (class 0 OID 24760)
+-- Dependencies: 235
 -- Data for Name: credit_payment_schedule; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.credit_payment_schedule (creditagreementid, plannedpaymentdate, actualpaymentdate, interestpayment, creditpayment) FROM stdin;
-1	2023-11-25	\N	560	5600
+COPY public.credit_payment_schedule (id, creditagreementid, plannedpaymentdate, actualpaymentdate, interestpayment, creditpayment) FROM stdin;
+1	2	2023-04-12	2023-04-12	2000	16000
+2	2	2023-05-12	2023-05-12	2000	16000
+3	2	2023-06-12	2023-06-12	2000	16000
+4	2	2023-07-12	2023-07-12	2000	16000
+5	2	2023-08-12	2023-08-12	2000	16000
+6	2	2023-09-12	2023-09-12	2000	16000
+7	2	2023-10-12	\N	2000	16000
+8	2	2023-11-12	\N	2000	16000
 \.
 
 
 --
--- TOC entry 4935 (class 0 OID 16527)
+-- TOC entry 4949 (class 0 OID 16527)
 -- Dependencies: 223
 -- Data for Name: currency; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.currency (id, name) FROM stdin;
-2	rub
+COPY public.currency (id, name, country) FROM stdin;
+2	rub	Russia
 \.
 
 
 --
--- TOC entry 4937 (class 0 OID 16534)
--- Dependencies: 225
+-- TOC entry 4953 (class 0 OID 24664)
+-- Dependencies: 227
 -- Data for Name: deposit; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
 COPY public.deposit (id, description, name, minimumamount, interestrate) FROM stdin;
+1	Вклад на данных условиях доступен для клиентов, у которых в течение последних 30 дней на дату обращения отсутствуют счета в Банке, открытые на их имя	Надежный вклад	100000	6
+2	Вклад на данных условиях доступен для клиентов, у которых в течение последних 30 дней на дату обращения отсутствуют счета в Банке, открытые на их имя	Прибыльный вклад	250000	9.6
 \.
 
 
 --
--- TOC entry 4939 (class 0 OID 16543)
--- Dependencies: 227
+-- TOC entry 4957 (class 0 OID 24710)
+-- Dependencies: 231
 -- Data for Name: deposit_agreement; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
 COPY public.deposit_agreement (id, currencyid, depositid, employeeid, clientid, dayofaccrual, plannedclosingdate, amountofpayments, initialamount, dateofopening, dateofclosing) FROM stdin;
+2	2	2	7	4	13	2023-12-13	15000	300000	2023-04-12	\N
+1	2	1	7	4	12	2024-12-12	0	500000	2023-11-12	\N
 \.
 
 
 --
--- TOC entry 4940 (class 0 OID 16581)
--- Dependencies: 228
+-- TOC entry 4959 (class 0 OID 24746)
+-- Dependencies: 233
 -- Data for Name: deposit_payment_schedule; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.deposit_payment_schedule (depositagreementid, plannedpaymentdate, actualpaymentdate, paymentamount) FROM stdin;
+COPY public.deposit_payment_schedule (id, depositagreementid, plannedpaymentdate, actualpaymentdate, paymentamount) FROM stdin;
 \.
 
 
 --
--- TOC entry 4933 (class 0 OID 16510)
+-- TOC entry 4947 (class 0 OID 16510)
 -- Dependencies: 221
 -- Data for Name: employee; Type: TABLE DATA; Schema: public; Owner: postgres
 --
@@ -588,7 +677,7 @@ COPY public.employee (id, name, passportid, phonenumber, email, address, dateofb
 
 
 --
--- TOC entry 4931 (class 0 OID 16502)
+-- TOC entry 4945 (class 0 OID 16502)
 -- Dependencies: 219
 -- Data for Name: employee_category; Type: TABLE DATA; Schema: public; Owner: postgres
 --
@@ -599,7 +688,7 @@ COPY public.employee_category (id, description, salary, name) FROM stdin;
 
 
 --
--- TOC entry 4960 (class 0 OID 0)
+-- TOC entry 4978 (class 0 OID 0)
 -- Dependencies: 216
 -- Name: client_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
@@ -608,25 +697,34 @@ SELECT pg_catalog.setval('public.client_id_seq', 4, true);
 
 
 --
--- TOC entry 4961 (class 0 OID 0)
--- Dependencies: 231
+-- TOC entry 4979 (class 0 OID 0)
+-- Dependencies: 228
 -- Name: credit_agreement_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.credit_agreement_id_seq', 2, true);
+SELECT pg_catalog.setval('public.credit_agreement_id_seq', 1, false);
 
 
 --
--- TOC entry 4962 (class 0 OID 0)
--- Dependencies: 229
+-- TOC entry 4980 (class 0 OID 0)
+-- Dependencies: 224
 -- Name: credit_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.credit_id_seq', 2, true);
+SELECT pg_catalog.setval('public.credit_id_seq', 1, false);
 
 
 --
--- TOC entry 4963 (class 0 OID 0)
+-- TOC entry 4981 (class 0 OID 0)
+-- Dependencies: 234
+-- Name: credit_payment_schedule_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.credit_payment_schedule_id_seq', 8, true);
+
+
+--
+-- TOC entry 4982 (class 0 OID 0)
 -- Dependencies: 222
 -- Name: currency_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
@@ -635,8 +733,8 @@ SELECT pg_catalog.setval('public.currency_id_seq', 2, true);
 
 
 --
--- TOC entry 4964 (class 0 OID 0)
--- Dependencies: 226
+-- TOC entry 4983 (class 0 OID 0)
+-- Dependencies: 230
 -- Name: deposit_agreement_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -644,8 +742,8 @@ SELECT pg_catalog.setval('public.deposit_agreement_id_seq', 1, false);
 
 
 --
--- TOC entry 4965 (class 0 OID 0)
--- Dependencies: 224
+-- TOC entry 4984 (class 0 OID 0)
+-- Dependencies: 226
 -- Name: deposit_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -653,7 +751,16 @@ SELECT pg_catalog.setval('public.deposit_id_seq', 1, false);
 
 
 --
--- TOC entry 4966 (class 0 OID 0)
+-- TOC entry 4985 (class 0 OID 0)
+-- Dependencies: 232
+-- Name: deposit_payment_schedule_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.deposit_payment_schedule_id_seq', 1, false);
+
+
+--
+-- TOC entry 4986 (class 0 OID 0)
 -- Dependencies: 218
 -- Name: employee_category_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
@@ -662,7 +769,7 @@ SELECT pg_catalog.setval('public.employee_category_id_seq', 2, true);
 
 
 --
--- TOC entry 4967 (class 0 OID 0)
+-- TOC entry 4987 (class 0 OID 0)
 -- Dependencies: 220
 -- Name: employee_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
@@ -671,7 +778,25 @@ SELECT pg_catalog.setval('public.employee_id_seq', 7, true);
 
 
 --
--- TOC entry 4755 (class 2606 OID 16500)
+-- TOC entry 4759 (class 2606 OID 24773)
+-- Name: credit_agreement ch1; Type: CHECK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.credit_agreement
+    ADD CONSTRAINT ch1 CHECK ((dateofopening > dateofclosing)) NOT VALID;
+
+
+--
+-- TOC entry 4764 (class 2606 OID 24775)
+-- Name: deposit_agreement ch1; Type: CHECK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.deposit_agreement
+    ADD CONSTRAINT ch1 CHECK ((dateofopening < dateofclosing)) NOT VALID;
+
+
+--
+-- TOC entry 4769 (class 2606 OID 16500)
 -- Name: client client_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -680,7 +805,7 @@ ALTER TABLE ONLY public.client
 
 
 --
--- TOC entry 4771 (class 2606 OID 16607)
+-- TOC entry 4781 (class 2606 OID 24688)
 -- Name: credit_agreement credit_agreement_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -689,16 +814,16 @@ ALTER TABLE ONLY public.credit_agreement
 
 
 --
--- TOC entry 4773 (class 2606 OID 16632)
+-- TOC entry 4787 (class 2606 OID 24767)
 -- Name: credit_payment_schedule credit_payment_schedule_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.credit_payment_schedule
-    ADD CONSTRAINT credit_payment_schedule_pkey PRIMARY KEY (creditagreementid, plannedpaymentdate);
+    ADD CONSTRAINT credit_payment_schedule_pkey PRIMARY KEY (id);
 
 
 --
--- TOC entry 4769 (class 2606 OID 16598)
+-- TOC entry 4777 (class 2606 OID 24661)
 -- Name: credit credit_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -707,7 +832,7 @@ ALTER TABLE ONLY public.credit
 
 
 --
--- TOC entry 4761 (class 2606 OID 16532)
+-- TOC entry 4775 (class 2606 OID 16532)
 -- Name: currency currency_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -716,7 +841,7 @@ ALTER TABLE ONLY public.currency
 
 
 --
--- TOC entry 4765 (class 2606 OID 16550)
+-- TOC entry 4783 (class 2606 OID 24721)
 -- Name: deposit_agreement deposit_agreement_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -725,16 +850,16 @@ ALTER TABLE ONLY public.deposit_agreement
 
 
 --
--- TOC entry 4767 (class 2606 OID 16585)
+-- TOC entry 4785 (class 2606 OID 24753)
 -- Name: deposit_payment_schedule deposit_payment_schedule_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.deposit_payment_schedule
-    ADD CONSTRAINT deposit_payment_schedule_pkey PRIMARY KEY (depositagreementid, plannedpaymentdate);
+    ADD CONSTRAINT deposit_payment_schedule_pkey PRIMARY KEY (id);
 
 
 --
--- TOC entry 4763 (class 2606 OID 16540)
+-- TOC entry 4779 (class 2606 OID 24673)
 -- Name: deposit deposit_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -743,7 +868,7 @@ ALTER TABLE ONLY public.deposit
 
 
 --
--- TOC entry 4757 (class 2606 OID 16508)
+-- TOC entry 4771 (class 2606 OID 16508)
 -- Name: employee_category employee_category_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -752,7 +877,7 @@ ALTER TABLE ONLY public.employee_category
 
 
 --
--- TOC entry 4759 (class 2606 OID 16520)
+-- TOC entry 4773 (class 2606 OID 16520)
 -- Name: employee employee_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -761,7 +886,7 @@ ALTER TABLE ONLY public.employee
 
 
 --
--- TOC entry 4780 (class 2606 OID 16623)
+-- TOC entry 4789 (class 2606 OID 24704)
 -- Name: credit_agreement credit_agreement_clientid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -770,7 +895,7 @@ ALTER TABLE ONLY public.credit_agreement
 
 
 --
--- TOC entry 4781 (class 2606 OID 16613)
+-- TOC entry 4790 (class 2606 OID 24694)
 -- Name: credit_agreement credit_agreement_creditid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -779,7 +904,7 @@ ALTER TABLE ONLY public.credit_agreement
 
 
 --
--- TOC entry 4782 (class 2606 OID 16608)
+-- TOC entry 4791 (class 2606 OID 24689)
 -- Name: credit_agreement credit_agreement_currencyid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -788,7 +913,7 @@ ALTER TABLE ONLY public.credit_agreement
 
 
 --
--- TOC entry 4783 (class 2606 OID 16618)
+-- TOC entry 4792 (class 2606 OID 24699)
 -- Name: credit_agreement credit_agreement_employeeid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -797,7 +922,7 @@ ALTER TABLE ONLY public.credit_agreement
 
 
 --
--- TOC entry 4784 (class 2606 OID 16633)
+-- TOC entry 4798 (class 2606 OID 24768)
 -- Name: credit_payment_schedule credit_payment_schedule_creditagreementid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -806,7 +931,7 @@ ALTER TABLE ONLY public.credit_payment_schedule
 
 
 --
--- TOC entry 4775 (class 2606 OID 16566)
+-- TOC entry 4793 (class 2606 OID 24737)
 -- Name: deposit_agreement deposit_agreement_clientid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -815,7 +940,7 @@ ALTER TABLE ONLY public.deposit_agreement
 
 
 --
--- TOC entry 4776 (class 2606 OID 16551)
+-- TOC entry 4794 (class 2606 OID 24722)
 -- Name: deposit_agreement deposit_agreement_currencyid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -824,7 +949,7 @@ ALTER TABLE ONLY public.deposit_agreement
 
 
 --
--- TOC entry 4777 (class 2606 OID 16556)
+-- TOC entry 4795 (class 2606 OID 24727)
 -- Name: deposit_agreement deposit_agreement_depositid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -833,7 +958,7 @@ ALTER TABLE ONLY public.deposit_agreement
 
 
 --
--- TOC entry 4778 (class 2606 OID 16561)
+-- TOC entry 4796 (class 2606 OID 24732)
 -- Name: deposit_agreement deposit_agreement_employeeid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -842,7 +967,7 @@ ALTER TABLE ONLY public.deposit_agreement
 
 
 --
--- TOC entry 4779 (class 2606 OID 16586)
+-- TOC entry 4797 (class 2606 OID 24754)
 -- Name: deposit_payment_schedule deposit_payment_schedule_depositagreementid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -851,7 +976,7 @@ ALTER TABLE ONLY public.deposit_payment_schedule
 
 
 --
--- TOC entry 4774 (class 2606 OID 16521)
+-- TOC entry 4788 (class 2606 OID 16521)
 -- Name: employee employee_categoryid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -859,7 +984,7 @@ ALTER TABLE ONLY public.employee
     ADD CONSTRAINT employee_categoryid_fkey FOREIGN KEY (categoryid) REFERENCES public.employee_category(id);
 
 
--- Completed on 2023-10-24 15:38:47
+-- Completed on 2023-11-20 23:07:46
 
 --
 -- PostgreSQL database dump complete
